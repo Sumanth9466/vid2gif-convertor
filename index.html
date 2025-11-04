@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video to GIF Converter</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; }
+    #preview, #gif-preview { max-width: 100%; margin-top: 16px; }
+    .loader { display: none; }
+  </style>
+</head>
+<body>
+  <h2>Video to GIF Converter</h2>
+  <input type="file" id="video-input" accept="video/*" />
+  <br>
+  <video id="preview" controls style="display:none; width:400px;"></video>
+  <br>
+  <button id="convert-btn" disabled>Convert to GIF</button>
+  <div id="loader" class="loader">Converting... Please wait.</div>
+  <br>
+  <img id="gif-preview" style="display:none;" alt="GIF Result"/>
+  <br>
+  <a id="download-link" style="display:none;" download="output.gif">Download GIF</a>
+  <!-- ffmpeg.js (WebAssembly) -->
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
+  <script>
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const ffmpeg = createFFmpeg({ log: true });
+    const videoInput = document.getElementById('video-input');
+    const preview = document.getElementById('preview');
+    const gifPreview = document.getElementById('gif-preview');
+    const convertBtn = document.getElementById('convert-btn');
+    const downloadLink = document.getElementById('download-link');
+    const loader = document.getElementById('loader');
+    let videoFile;
+    videoInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        videoFile = file;
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+        convertBtn.disabled = false;
+        gifPreview.style.display = 'none';
+        downloadLink.style.display = 'none';
+      }
+    });
+    convertBtn.addEventListener('click', async () => {
+      if (!videoFile) return;
+      loader.style.display = 'block';
+      convertBtn.disabled = true;
+      gifPreview.style.display = 'none';
+      downloadLink.style.display = 'none';
+      if (!ffmpeg.isLoaded()) {
+        await ffmpeg.load();
+      }
+      ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
+      await ffmpeg.run('-i', 'input.mp4', '-t', '5', '-vf', 'scale=320:-1', 'output.gif');
+      const data = ffmpeg.FS('readFile', 'output.gif');
+      const gifBlob = new Blob([data.buffer], { type: 'image/gif' });
+      const gifUrl = URL.createObjectURL(gifBlob);
+      gifPreview.src = gifUrl;
+      gifPreview.style.display = 'inline';
+      downloadLink.href = gifUrl;
+      downloadLink.style.display = 'inline';
+      loader.style.display = 'none';
+      convertBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>
